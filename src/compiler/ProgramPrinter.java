@@ -790,7 +790,7 @@ public class ProgramPrinter implements CListener{
         String str = ctx.declarator().directDeclarator().directDeclarator().getText();
         String type = ctx.typeSpecifier().getText();
         if(str.equals("main")){
-            System.out.println("    main method: {");
+            System.out.println("    main method: return type: " + type + " {");
         }else{
             System.out.println("    normal method: name: " + str
             +"/ return type: " + type + " {");
