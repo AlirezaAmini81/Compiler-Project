@@ -643,7 +643,7 @@ public class FileSTablePrinter implements CListener {
     @Override
     public void enterSelectionStatement(CParser.SelectionStatementContext ctx) {
         if(nested >= 1){
-            SymbolTable nested = new SymbolTable(parent,"nested", 1);
+            SymbolTable nested = new SymbolTable(parent,"nested", ctx.getStart().getLine());
             parent = nested;
         }
         nested++;
@@ -660,7 +660,7 @@ public class FileSTablePrinter implements CListener {
     @Override
     public void enterIterationStatement(CParser.IterationStatementContext ctx) {
         if(nested >= 1){
-            SymbolTable nested = new SymbolTable(parent,"nested", 1);
+            SymbolTable nested = new SymbolTable(parent,"nested", ctx.getStart().getLine());
             parent = nested;
         }
         nested++;
@@ -716,7 +716,7 @@ public class FileSTablePrinter implements CListener {
 
     @Override
     public void enterExternalDeclaration(CParser.ExternalDeclarationContext ctx) {
-        SymbolTable program = new SymbolTable(null,"program", 0);
+        SymbolTable program = new SymbolTable(null,"program", ctx.getStart().getLine());
         parent = program;
     }
 
@@ -731,25 +731,27 @@ public class FileSTablePrinter implements CListener {
         String str = ctx.declarator().directDeclarator().directDeclarator().getText();
         String type = ctx.typeSpecifier().getText();
         if(str.equals("main")){
-            func = new SymbolTable(parent,"main", 0);
+            func = new SymbolTable(parent,"main", ctx.getStart().getLine());
             parent.items.put("Method_main", "Method : (name : main) (return type: int)");
             parent = func;
         }else{
-            String param = " parameter list: [";
+            String param = " (parameter list: ";
             if(ctx.declarator().directDeclarator().parameterTypeList() != null){
                 for(int i = 0; i < ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size(); i++ ){
-                    String str1 = ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration(i)
-                            .declarator().directDeclarator().Identifier() + " " + ctx.declarator().directDeclarator().parameterTypeList().parameterList()
-                            .parameterDeclaration(i).declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText();
+                    String str1 =  "[name: " + ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration(i)
+                            .declarator().directDeclarator().Identifier() +
+                            ", type: " + ctx.declarator().directDeclarator().parameterTypeList().parameterList()
+                            .parameterDeclaration(i).declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText() +
+                            ", index: " + i + "]";
                     param = param + str1;
                     if(i != ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size() -1){
                         param = param + ", ";
                     }
 
                 }
-                param = param + " ]";
+                param = param + ")";
             }
-            func = new SymbolTable(parent,str, 5);
+            func = new SymbolTable(parent,str, ctx.getStart().getLine());
             parent.items.put("Method_" + str, "Method : (name : " + str +") (return type: "+ type
                     + ")" + param);
             parent = func;
@@ -759,7 +761,7 @@ public class FileSTablePrinter implements CListener {
                             .declarator().directDeclarator().Identifier().getText();
                     String field_type = ctx.declarator().directDeclarator().parameterTypeList().parameterList()
                             .parameterDeclaration(i).declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText();
-                    parent.items.put("Field_" + name, "methodParamField(name: " + name + ") (type: " + type + ")");
+                    parent.items.put("Field_" + name, "methodParamField(name: " + name + ") (type: " + field_type + ")");
                 }
             }
         }
