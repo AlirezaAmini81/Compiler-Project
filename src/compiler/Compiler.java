@@ -21,8 +21,7 @@ public class Compiler {
         parser.setBuildParseTree(true);
         ParseTree tree = parser.externalDeclaration();
         ParseTreeWalker walker = new ParseTreeWalker();
-        CListener listener = new ProgramPrinter();
-
+        CListener listener = new FileSTablePrinter();
         walker.walk(listener, tree);
 
     }

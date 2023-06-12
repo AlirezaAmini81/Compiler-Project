@@ -6,11 +6,16 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import java.util.List;
+import java.util.ArrayList;
 
-public class ProgramPrinter implements CListener{
-    int indet = 0;
-    int nested = -1;
+public class FileSTablePrinter implements CListener {
+    ArrayList<SymbolTable> symbolTables;
+    int nested = 0;
+    SymbolTable parent;
+    
+    public FileSTablePrinter(){
+        symbolTables = new ArrayList<>();
+    }
 
     @Override
     public void enterPrimaryExpression(CParser.PrimaryExpressionContext ctx) {
@@ -84,6 +89,7 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterAdditiveExpression(CParser.AdditiveExpressionContext ctx) {
+
     }
 
     @Override
@@ -183,6 +189,7 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterAssignmentExpression(CParser.AssignmentExpressionContext ctx) {
+
     }
 
     @Override
@@ -227,11 +234,10 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void exitDeclaration(CParser.DeclarationContext ctx) {
-        for(int i = 0; i < indet; i++){
-            System.out.print("    ");
-        }
-        System.out.println("field: " + ctx.initDeclaratorList().initDeclarator(0).declarator().
-                directDeclarator().Identifier() + "/ type: " + ctx.declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText() + "/");
+        String name = ctx.initDeclaratorList().initDeclarator(0).declarator().
+                directDeclarator().Identifier().getText();
+        String type = ctx.declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText();
+        parent.items.put("Field_" + name, "methodField(name: " + name + ") (type: " + type + ")");
     }
 
     @Override
@@ -596,11 +602,6 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterCompoundStatement(CParser.CompoundStatementContext ctx) {
-//        for(int i = 0; i < ctx.blockItemList().blockItem().size(); i++){
-//            System.out.println("        " + ctx.blockItemList().blockItem(i).getText());
-//            if(ctx.blockItemList().blockItem(i).)
-//        }
-
 
     }
 
@@ -631,28 +632,7 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterExpressionStatement(CParser.ExpressionStatementContext ctx) {
-        CParser.PostfixExpressionContext expr = ctx.expression().assignmentExpression(0).conditionalExpression().logicalOrExpression().
-                logicalAndExpression(0).inclusiveOrExpression(0).exclusiveOrExpression(0).andExpression(0).
-                equalityExpression(0).relationalExpression(0).shiftExpression(0).additiveExpression(0).
-                multiplicativeExpression(0).castExpression(0).unaryExpression().postfixExpression();
 
-        if(!expr.primaryExpression().getText().equals("printf")){
-            for(int i = 0; i < indet; i++){
-                System.out.print("    ");
-            }
-            System.out.print("function call: name: " + expr.primaryExpression().getText() + "/");
-            if(!expr.getText().substring(expr.getText().length() -2).equals("()")){
-                System.out.print(" params:");
-                List<CParser.AssignmentExpressionContext> argList = expr.argumentExpressionList(0).assignmentExpression();
-                for(int i = 0; i < argList.size(); i++){
-                    System.out.print( " " + argList.get(i).getText() + " (index: " + i + ")" );
-                    if(i != argList.size() - 1){
-                        System.out.print(",");
-                    }
-                }
-            }
-            System.out.println();
-        }
     }
 
     @Override
@@ -662,51 +642,34 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterSelectionStatement(CParser.SelectionStatementContext ctx) {
-        if(nested >= 0){
-            for(int j = 0; j < indet; j++){
-                System.out.print("    ");
-            }
-            System.out.println("nested statement : {");
-            indet++;
+        if(nested >= 1){
+            SymbolTable nested = new SymbolTable(parent,"nested", 1);
+            parent = nested;
         }
         nested++;
     }
 
     @Override
     public void exitSelectionStatement(CParser.SelectionStatementContext ctx) {
-        if(nested > 0){
-            indet--;
-            for(int j = 0; j < indet; j++){
-                System.out.print("    ");
-            }
-            System.out.println("}");
+        if(parent.parent != null){
+            parent = parent.parent;
         }
         nested--;
     }
+
     @Override
     public void enterIterationStatement(CParser.IterationStatementContext ctx) {
-
-        String str = ctx.statement().compoundStatement().blockItemList().blockItem(0)
-                .statement().getText();
-        if(nested >= 0){
-            for(int j = 0; j < indet; j++){
-                System.out.print("    ");
-            }
-            System.out.println("nested statement : {");
-            indet++;
+        if(nested >= 1){
+            SymbolTable nested = new SymbolTable(parent,"nested", 1);
+            parent = nested;
         }
         nested++;
     }
 
     @Override
     public void exitIterationStatement(CParser.IterationStatementContext ctx) {
-        if(nested > 0){
-            indet--;
-
-            for(int j = 0; j < indet; j++){
-                System.out.print("    ");
-            }
-            System.out.println("}");
+        if(parent.parent != null){
+            parent = parent.parent;
         }
         nested--;
     }
@@ -723,7 +686,6 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterForDeclaration(CParser.ForDeclarationContext ctx) {
-
 
     }
 
@@ -754,47 +716,60 @@ public class ProgramPrinter implements CListener{
 
     @Override
     public void enterExternalDeclaration(CParser.ExternalDeclarationContext ctx) {
-        System.out.println("program start{");
-        indet++;
-
+        SymbolTable program = new SymbolTable(null,"program", 0);
+        parent = program;
     }
 
     @Override
     public void exitExternalDeclaration(CParser.ExternalDeclarationContext ctx) {
-        System.out.println("}");
-        indet--;
-
+        parent.print();
     }
-
+    int index = 0;
     @Override
-    public void enterFunctionDefinition(CParser.FunctionDefinitionContext ctx) {
-        indet++;
+    public void enterFunctionDefinition(CParser.FunctionDefinitionContext ctx){
+        SymbolTable func;
         String str = ctx.declarator().directDeclarator().directDeclarator().getText();
         String type = ctx.typeSpecifier().getText();
         if(str.equals("main")){
-            System.out.println("    main method: return type: " + type + " {");
+            func = new SymbolTable(parent,"main", 0);
+            parent.items.put("Method_main", "Method : (name : main) (return type: int)");
+            parent = func;
         }else{
-            System.out.println("    normal method: name: " + str
-            +"/ return type: " + type + " {");
-            System.out.print("        parameter list: [");
-            for(int i = 0; i < ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size(); i++ ){
-                System.out.print(ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration(i)
-                        .declarator().directDeclarator().Identifier() + " " + ctx.declarator().directDeclarator().parameterTypeList().parameterList()
-                        .parameterDeclaration(i).declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText());
-                if(i != ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size() -1){
-                    System.out.print(", ");
+            String param = " parameter list: [";
+            if(ctx.declarator().directDeclarator().parameterTypeList() != null){
+                for(int i = 0; i < ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size(); i++ ){
+                    String str1 = ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration(i)
+                            .declarator().directDeclarator().Identifier() + " " + ctx.declarator().directDeclarator().parameterTypeList().parameterList()
+                            .parameterDeclaration(i).declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText();
+                    param = param + str1;
+                    if(i != ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size() -1){
+                        param = param + ", ";
+                    }
+
                 }
-
+                param = param + " ]";
             }
-            System.out.println(" ]");
+            func = new SymbolTable(parent,str, 5);
+            parent.items.put("Method_" + str, "Method : (name : " + str +") (return type: "+ type
+                    + ")" + param);
+            parent = func;
+            if(ctx.declarator().directDeclarator().parameterTypeList() != null){
+                for(int i = 0; i < ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration().size(); i++ ){
+                    String name = ctx.declarator().directDeclarator().parameterTypeList().parameterList().parameterDeclaration(i)
+                            .declarator().directDeclarator().Identifier().getText();
+                    String field_type = ctx.declarator().directDeclarator().parameterTypeList().parameterList()
+                            .parameterDeclaration(i).declarationSpecifiers().declarationSpecifier(0).typeSpecifier().getText();
+                    parent.items.put("Field_" + name, "methodParamField(name: " + name + ") (type: " + type + ")");
+                }
+            }
         }
-
     }
 
     @Override
     public void exitFunctionDefinition(CParser.FunctionDefinitionContext ctx) {
-        System.out.println("    }");
-        indet--;
+        if(parent.parent != null){
+            parent = parent.parent;
+        }
     }
 
     @Override
